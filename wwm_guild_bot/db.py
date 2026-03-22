@@ -137,7 +137,6 @@ class Database:
             inner_way_3_level=row["inner_way_3_level"],
             inner_way_4_name=row["inner_way_4_name"],
             inner_way_4_level=row["inner_way_4_level"],
-            build_link=row["build_link"],
             notes=row["notes"],
             updated_at=from_storage_datetime(row["updated_at"]),
         )
@@ -242,7 +241,7 @@ class Database:
                     payload["inner_way_3_level"],
                     payload["inner_way_4_name"],
                     payload["inner_way_4_level"],
-                    payload.get("build_link"),
+                    None,
                     payload.get("notes"),
                     now,
                 ),

@@ -28,7 +28,6 @@ class UserProfile:
     inner_way_3_level: int
     inner_way_4_name: str
     inner_way_4_level: int
-    build_link: Optional[str]
     notes: Optional[str]
     updated_at: Optional[datetime] = None
 

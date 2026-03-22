@@ -35,7 +35,6 @@ def build_profile_embed(profile: UserProfile, user: discord.abc.User) -> discord
         ),
         inline=False,
     )
-    embed.add_field(name="Build Link", value=profile.build_link or "-", inline=False)
     embed.add_field(name="Notes", value=profile.notes or "-", inline=False)
     return embed
 

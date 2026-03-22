@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 import discord
 from discord.ext import commands
@@ -26,7 +25,6 @@ class WWMGuildBot(commands.Bot):
         self.config = config
         self.db = Database(config.sqlite_path)
         self.scheduler = BotScheduler(self)
-        self.registration_sessions: dict[int, dict[str, Any]] = {}
         self.guild_object = discord.Object(id=config.discord_guild_id)
 
     async def setup_hook(self) -> None:

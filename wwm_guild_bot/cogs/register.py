@@ -9,184 +9,106 @@ from ..models import ROLE_BUCKETS
 from ..utils import ValidationError, build_simple_embed, normalize_optional_text, parse_inner_way_pair
 
 
-def profile_to_payload(profile) -> dict:
-    return {
-        "character_name": profile.character_name,
-        "mastery": profile.mastery,
-        "role": profile.role,
-        "primary_weapon": profile.primary_weapon,
-        "secondary_weapon": profile.secondary_weapon,
-        "path_guide": profile.path_guide,
-        "sect_boost": profile.sect_boost,
-        "inner_way_1_name": profile.inner_way_1_name,
-        "inner_way_1_level": profile.inner_way_1_level,
-        "inner_way_2_name": profile.inner_way_2_name,
-        "inner_way_2_level": profile.inner_way_2_level,
-        "inner_way_3_name": profile.inner_way_3_name,
-        "inner_way_3_level": profile.inner_way_3_level,
-        "inner_way_4_name": profile.inner_way_4_name,
-        "inner_way_4_level": profile.inner_way_4_level,
-        "build_link": profile.build_link,
-        "notes": profile.notes,
+def build_registration_payload(
+    interaction: discord.Interaction,
+    *,
+    character_name: str,
+    mastery: str,
+    role: str,
+    primary_weapon: str,
+    secondary_weapon: str,
+    path_guide: str,
+    sect_boost: str | None,
+    inner_way_1: str,
+    inner_way_2: str,
+    inner_way_3: str,
+    inner_way_4: str,
+    notes: str | None,
+) -> dict:
+    role_value = role.strip().lower()
+    if role_value not in ROLE_BUCKETS:
+        raise ValidationError("Role must be tank, healer, or dps.")
+
+    payload = {
+        "discord_user_id": interaction.user.id,
+        "character_name": character_name.strip(),
+        "mastery": mastery.strip(),
+        "role": role_value,
+        "primary_weapon": primary_weapon.strip(),
+        "secondary_weapon": secondary_weapon.strip(),
+        "path_guide": path_guide.strip(),
+        "sect_boost": normalize_optional_text(sect_boost),
+        "notes": normalize_optional_text(notes),
     }
+    for index, value in enumerate((inner_way_1, inner_way_2, inner_way_3, inner_way_4), start=1):
+        name, level = parse_inner_way_pair(value)
+        payload[f"inner_way_{index}_name"] = name
+        payload[f"inner_way_{index}_level"] = level
+    return payload
 
 
-class BaseRegistrationModal(discord.ui.Modal):
-    def __init__(self, bot: "WWMGuildBot"):
-        super().__init__()
-        self.bot = bot
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
-        embed = build_simple_embed("Registration Error", str(error), color=0xE74C3C)
-        if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-class RegistrationContinueView(discord.ui.View):
-    def __init__(self, bot: "WWMGuildBot", user_id: int, next_step: int):
-        super().__init__(timeout=900)
-        self.bot = bot
-        self.user_id = user_id
-        self.next_step = next_step
-
-    @discord.ui.button(label="Continue Registration", style=discord.ButtonStyle.primary)
-    async def continue_button(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message(
-                embed=build_simple_embed(
-                    "Not Your Form",
-                    "Only the user who started the registration flow can continue it.",
-                    color=0xE74C3C,
-                ),
-                ephemeral=True,
-            )
-            return
-        if self.next_step == 2:
-            await interaction.response.send_modal(RegisterCharacterStep2Modal(self.bot, interaction.user.id))
-            return
-        await interaction.response.send_modal(RegisterCharacterStep3Modal(self.bot, interaction.user.id))
-
-
-class RegisterCharacterStep1Modal(BaseRegistrationModal, title="WWM Registration • Step 1/3"):
-    character_name = discord.ui.TextInput(label="Character Name", max_length=80)
-    mastery = discord.ui.TextInput(label="Mastery", max_length=80)
-    role = discord.ui.TextInput(label="Role: tank/healer/dps", max_length=10)
-    primary_weapon = discord.ui.TextInput(label="Primary Weapon", max_length=80)
-    secondary_weapon = discord.ui.TextInput(label="Secondary Weapon", max_length=80)
-
-    def __init__(self, bot: "WWMGuildBot", existing: dict | None = None):
-        super().__init__(bot)
-        existing = existing or {}
-        self.character_name.default = existing.get("character_name")
-        self.mastery.default = existing.get("mastery")
-        self.role.default = existing.get("role")
-        self.primary_weapon.default = existing.get("primary_weapon")
-        self.secondary_weapon.default = existing.get("secondary_weapon")
-
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        role_value = self.role.value.strip().lower()
-        if role_value not in ROLE_BUCKETS:
-            raise ValidationError("Role must be tank, healer, or dps.")
-        self.bot.registration_sessions[interaction.user.id] = {
-            "discord_user_id": interaction.user.id,
-            "character_name": self.character_name.value.strip(),
-            "mastery": self.mastery.value.strip(),
-            "role": role_value,
-            "primary_weapon": self.primary_weapon.value.strip(),
-            "secondary_weapon": self.secondary_weapon.value.strip(),
-        }
-        await interaction.response.send_message(
-            embed=build_simple_embed(
-                "Step 1 Saved",
-                "Continue to step 2 for path guide, sect boost, and inner ways 1-3.",
-                color=0x2ECC71,
-            ),
-            view=RegistrationContinueView(self.bot, interaction.user.id, 2),
-            ephemeral=True,
-        )
-
-
-class RegisterCharacterStep2Modal(BaseRegistrationModal, title="WWM Registration • Step 2/3"):
-    path_guide = discord.ui.TextInput(label="Path Guide", max_length=400)
-    sect_boost = discord.ui.TextInput(label="Sect Boost (optional)", required=False, max_length=200)
-    inner_way_1 = discord.ui.TextInput(label="Inner Way 1 as Name:Level", max_length=120)
-    inner_way_2 = discord.ui.TextInput(label="Inner Way 2 as Name:Level", max_length=120)
-    inner_way_3 = discord.ui.TextInput(label="Inner Way 3 as Name:Level", max_length=120)
-
-    def __init__(self, bot: "WWMGuildBot", user_id: int):
-        super().__init__(bot)
-        session = bot.registration_sessions.get(user_id, {})
-        self.path_guide.default = session.get("path_guide")
-        self.sect_boost.default = session.get("sect_boost")
-        for index in range(1, 4):
-            name = session.get(f"inner_way_{index}_name")
-            level = session.get(f"inner_way_{index}_level")
-            if name is not None and level is not None:
-                getattr(self, f"inner_way_{index}").default = f"{name}:{level}"
-
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        session = self.bot.registration_sessions.get(interaction.user.id)
-        if session is None:
-            raise ValidationError("Registration session expired. Run /register_character again.")
-        session["path_guide"] = self.path_guide.value.strip()
-        session["sect_boost"] = normalize_optional_text(self.sect_boost.value)
-        for index, value in enumerate(
-            [self.inner_way_1.value, self.inner_way_2.value, self.inner_way_3.value],
-            start=1,
-        ):
-            name, level = parse_inner_way_pair(value)
-            session[f"inner_way_{index}_name"] = name
-            session[f"inner_way_{index}_level"] = level
-        await interaction.response.send_message(
-            embed=build_simple_embed(
-                "Step 2 Saved",
-                "Continue to step 3 for inner way 4, optional link, and notes.",
-                color=0x2ECC71,
-            ),
-            view=RegistrationContinueView(self.bot, interaction.user.id, 3),
-            ephemeral=True,
-        )
-
-
-class RegisterCharacterStep3Modal(BaseRegistrationModal, title="WWM Registration • Step 3/3"):
-    inner_way_4 = discord.ui.TextInput(label="Inner Way 4 as Name:Level", max_length=120)
-    build_link = discord.ui.TextInput(label="Build Link (optional)", required=False, max_length=400)
-    notes = discord.ui.TextInput(
-        label="Notes (optional)",
-        required=False,
-        style=discord.TextStyle.paragraph,
-        max_length=600,
+def build_help_embed() -> discord.Embed:
+    embed = build_simple_embed(
+        "WWM Guild Bot Help",
+        "Use these commands and buttons to register your build, sign up for events, and manage rosters.",
+        color=0x5865F2,
     )
-
-    def __init__(self, bot: "WWMGuildBot", user_id: int):
-        super().__init__(bot)
-        session = bot.registration_sessions.get(user_id, {})
-        name = session.get("inner_way_4_name")
-        level = session.get("inner_way_4_level")
-        if name is not None and level is not None:
-            self.inner_way_4.default = f"{name}:{level}"
-        self.build_link.default = session.get("build_link")
-        self.notes.default = session.get("notes")
-
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        session = self.bot.registration_sessions.get(interaction.user.id)
-        if session is None:
-            raise ValidationError("Registration session expired. Run /register_character again.")
-        name, level = parse_inner_way_pair(self.inner_way_4.value)
-        session["inner_way_4_name"] = name
-        session["inner_way_4_level"] = level
-        session["build_link"] = normalize_optional_text(self.build_link.value)
-        session["notes"] = normalize_optional_text(self.notes.value)
-        self.bot.db.upsert_user(session)
-        self.bot.registration_sessions.pop(interaction.user.id, None)
-        profile = self.bot.db.get_user(interaction.user.id)
-        assert profile is not None
-        await interaction.response.send_message(
-            embed=build_profile_embed(profile, interaction.user),
-            ephemeral=True,
-        )
+    embed.add_field(
+        name="Quick Start",
+        value=(
+            "1. Run `/register_character` and fill every field.\n"
+            "2. Use `Inner Way` fields in `Name:Level` format, for example `Iron Bone:12`.\n"
+            "3. Open event posts and click Tank, Healer, DPS, Bench, Tentative, or Absence.\n"
+            "4. Use `/signup_status` to review your active signups.\n"
+            "5. Use `/withdraw event_id:<id>` if you need to leave an event."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Member Commands",
+        value=(
+            "`/register_character` Register or update your single stored build.\n"
+            "`/my_build` Review your saved build profile.\n"
+            "`/signup_status` See every event you are signed up for.\n"
+            "`/withdraw event_id:<id>` Remove yourself from one event."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Signup Buttons",
+        value=(
+            "`Tank`, `Healer`, `DPS` claim a main-role slot.\n"
+            "`Bench` places you on the bench.\n"
+            "`Tentative` marks you unsure if that event allows it.\n"
+            "`Absence` marks that you cannot attend.\n"
+            "`Withdraw` removes your signup.\n"
+            "`Refresh` is officer-only and re-renders the event post."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Officer Commands",
+        value=(
+            "`/event_create` Create a one-time draft event.\n"
+            "`/event_post` Post or repost the signup embed.\n"
+            "`/event_create_recurring` Create a recurring template.\n"
+            "`/event_list` Review upcoming events and templates.\n"
+            "`/event_close`, `/event_lock`, `/event_unlock` control signup state.\n"
+            "`/roster_move`, `/roster_remove`, `/event_refresh`, `/template_toggle` are officer maintenance tools."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Common Gotchas",
+        value=(
+            "You must register with `/register_character` before using signup buttons.\n"
+            "If an inner way fails validation, use `Name:Level` with a whole-number level.\n"
+            "Event IDs come from event embeds and event list output.\n"
+            "Only officers and admins can use officer commands."
+        ),
+        inline=False,
+    )
+    return embed
 
 
 class RegisterCog(commands.Cog):
@@ -209,11 +131,66 @@ class RegisterCog(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="help", description="Show how to use the WWM guild bot.")
+    async def help_command(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(embed=build_help_embed(), ephemeral=True)
+
     @app_commands.command(name="register_character", description="Register or update your one WWM character/build.")
-    async def register_character(self, interaction: discord.Interaction) -> None:
-        existing = self.bot.db.get_user(interaction.user.id)
-        payload = profile_to_payload(existing) if existing else None
-        await interaction.response.send_modal(RegisterCharacterStep1Modal(self.bot, payload))
+    @app_commands.describe(
+        character_name="Your in-game character name.",
+        mastery="Your character mastery.",
+        role="Your signup role bucket.",
+        primary_weapon="Your primary weapon.",
+        secondary_weapon="Your secondary weapon.",
+        path_guide="Your path guide.",
+        sect_boost="Optional sect boost details.",
+        inner_way_1="Inner Way 1 in Name:Level format.",
+        inner_way_2="Inner Way 2 in Name:Level format.",
+        inner_way_3="Inner Way 3 in Name:Level format.",
+        inner_way_4="Inner Way 4 in Name:Level format.",
+        notes="Optional notes about your build.",
+    )
+    @app_commands.choices(
+        role=[app_commands.Choice(name=value.upper(), value=value) for value in ROLE_BUCKETS]
+    )
+    async def register_character(
+        self,
+        interaction: discord.Interaction,
+        character_name: str,
+        mastery: str,
+        role: app_commands.Choice[str],
+        primary_weapon: str,
+        secondary_weapon: str,
+        path_guide: str,
+        inner_way_1: str,
+        inner_way_2: str,
+        inner_way_3: str,
+        inner_way_4: str,
+        sect_boost: str | None = None,
+        notes: str | None = None,
+    ) -> None:
+        payload = build_registration_payload(
+            interaction,
+            character_name=character_name,
+            mastery=mastery,
+            role=role.value,
+            primary_weapon=primary_weapon,
+            secondary_weapon=secondary_weapon,
+            path_guide=path_guide,
+            sect_boost=sect_boost,
+            inner_way_1=inner_way_1,
+            inner_way_2=inner_way_2,
+            inner_way_3=inner_way_3,
+            inner_way_4=inner_way_4,
+            notes=notes,
+        )
+        self.bot.db.upsert_user(payload)
+        profile = self.bot.db.get_user(interaction.user.id)
+        assert profile is not None
+        await interaction.response.send_message(
+            embed=build_profile_embed(profile, interaction.user),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="my_build", description="Show your stored WWM build details.")
     async def my_build(self, interaction: discord.Interaction) -> None:
@@ -242,7 +219,7 @@ class RegisterCog(commands.Cog):
         for row in rows:
             position = row["role_bucket"].upper() if row["signup_state"] == "main" else row["signup_state"].title()
             lines.append(
-                f"Event **#{row['event_id']}** {row['title']} — {position} — {row['status']}"
+                f"Event **#{row['event_id']}** {row['title']} - {position} - {row['status']}"
             )
         await interaction.response.send_message(
             embed=build_simple_embed("Your Signups", "\n".join(lines), color=0x5865F2),

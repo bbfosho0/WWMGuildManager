@@ -53,11 +53,10 @@ Each Discord user can store exactly one WWM character and one primary build with
 - path_guide
 - sect_boost
 - 4 inner ways with levels
-- build_link
 - notes
 
-`/register_character` starts a **3-step modal flow** because Discord modals only allow up to 5 inputs at a time.
-That is the smallest practical way to keep registration modal-based while still capturing every required field.
+`/register_character` is a single slash command form.
+It keeps registration on one Discord command page while still validating role choice and all 4 inner ways.
 
 ### Events and signups
 
@@ -122,7 +121,7 @@ Stopping recurrence is supported by:
 - No advanced waitlist prioritization.
 - No export or analytics.
 - No per-event permission editor.
-- Registration uses multiple modals because one Discord modal cannot hold all required fields.
+- Registration uses one slash command form instead of multiple modals.
 - This MVP uses slash-command text inputs for event creation rather than large admin modals, to keep officer workflows simple and maintainable.
 
 ## Discord application setup
@@ -201,6 +200,7 @@ On startup the bot will:
 
 ### User commands
 
+- `/help`
 - `/register_character`
 - `/my_build`
 - `/signup_status`
@@ -267,13 +267,14 @@ This keeps v1 easy to run without a database-backed permission system.
 
 ## Quick usage flow
 
-1. Run `/register_character` and finish the 3-step modal flow.
-2. Officer runs `/event_create`.
-3. Officer runs `/event_post event_id:<id>`.
-4. Members click Tank / Healer / DPS / Bench / Tentative / Absence.
-5. Officers use `/roster_move`, `/event_lock`, `/event_close`, or `/event_refresh` when needed.
-6. Officers create recurring templates with `/event_create_recurring`.
-7. Scheduler automatically creates and posts future events when they become due.
+1. Run `/help` if you need a full walkthrough of commands and signup behavior.
+2. Run `/register_character` and fill the single command form.
+3. Officer runs `/event_create`.
+4. Officer runs `/event_post event_id:<id>`.
+5. Members click Tank / Healer / DPS / Bench / Tentative / Absence.
+6. Officers use `/roster_move`, `/event_lock`, `/event_close`, or `/event_refresh` when needed.
+7. Officers create recurring templates with `/event_create_recurring`.
+8. Scheduler automatically creates and posts future events when they become due.
 
 ## Next improvements
 
