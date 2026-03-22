@@ -23,15 +23,15 @@ def build_profile_embed(profile: UserProfile, user: discord.abc.User) -> discord
         value=f"{profile.primary_weapon} / {profile.secondary_weapon}",
         inline=False,
     )
-    embed.add_field(name="Path Guide", value=profile.path_guide, inline=False)
+    embed.add_field(name="Martial Arts Path", value=profile.path_guide, inline=False)
     embed.add_field(name="Sect Boost", value=profile.sect_boost or "-", inline=False)
     embed.add_field(
         name="Inner Ways",
         value=(
-            f"1. {profile.inner_way_1_name} Lv.{profile.inner_way_1_level}\n"
-            f"2. {profile.inner_way_2_name} Lv.{profile.inner_way_2_level}\n"
-            f"3. {profile.inner_way_3_name} Lv.{profile.inner_way_3_level}\n"
-            f"4. {profile.inner_way_4_name} Lv.{profile.inner_way_4_level}"
+            f"1. {profile.inner_way_1_name} Tier {profile.inner_way_1_level}\n"
+            f"2. {profile.inner_way_2_name} Tier {profile.inner_way_2_level}\n"
+            f"3. {profile.inner_way_3_name} Tier {profile.inner_way_3_level}\n"
+            f"4. {profile.inner_way_4_name} Tier {profile.inner_way_4_level}"
         ),
         inline=False,
     )

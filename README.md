@@ -48,15 +48,15 @@ Each Discord user can store exactly one WWM character and one primary build with
 - character_name
 - mastery
 - role
-- primary_weapon
-- secondary_weapon
-- path_guide
+- primary_weapon from a fixed list
+- secondary_weapon from a fixed list
+- Martial Arts Path from a fixed list
 - sect_boost
-- 4 inner ways with levels
+- 4 inner ways chosen by autocomplete, each with tier 1-6
 - notes
 
 `/register_character` is a single slash command form.
-It keeps registration on one Discord command page while still validating role choice and all 4 inner ways.
+It keeps registration on one Discord command page with role, weapon, and Martial Arts Path selectors, plus inner-way autocomplete and tier selectors.
 
 ### Events and signups
 
